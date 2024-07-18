@@ -1,12 +1,10 @@
-import random
-
 import customtkinter as ctk
+import random
 import keyboard
 import threading
 import mouse
 import ctypes
 from time import sleep
-from advanced_options import AdvancedOptions
 
 
 class App(ctk.CTk):
@@ -40,36 +38,52 @@ class App(ctk.CTk):
 
         # Advanced options
         self.random_time_offset_enabled = ctk.BooleanVar(value=False)
-        self.random_time_offset = ctk.IntVar(value=0)
+        self.random_time_offset = ctk.StringVar(value='0')
 
         self.random_mouse_offset_enabled = ctk.BooleanVar(value=False)
-        self.random_mouse_offset_x = ctk.IntVar(value=0)
-        self.random_mouse_offset_y = ctk.IntVar(value=0)
+        self.random_mouse_offset_x = ctk.StringVar(value='0')
+        self.random_mouse_offset_y = ctk.StringVar(value='0')
 
         self.click_type = ctk.StringVar(value='Single')
-        self.hold_duration = ctk.IntVar(value=0)
+        self.hold_duration = ctk.StringVar(value='0')
 
         self.repeat_option = ctk.StringVar(value='Toggle')
-        self.repeat_value = ctk.IntVar(value=0)
+        self.repeat_value = ctk.StringVar(value='0')
 
         self.killswitch_hotkey = ctk.StringVar(value='Ctrl+Shift+K')
 
         self.appearence = ctk.StringVar(value='System')
         self.theme = ctk.StringVar(value='Blue')
 
+        self.random_time_offset.trace('w', lambda x, y, z: self.validate(self.random_time_offset))
+        self.random_mouse_offset_x.trace('w', lambda x, y, z: self.validate(self.random_mouse_offset_x))
+        self.random_mouse_offset_y.trace('w', lambda x, y, z: self.validate(self.random_mouse_offset_y))
+        self.hold_duration.trace('w', lambda x, y, z: self.validate(self.hold_duration))
+        self.repeat_value.trace('w', lambda x, y, z: self.validate(self.repeat_value))
+
+        self.advanced_options_vars = (
+            self.random_time_offset_enabled,
+            self.random_time_offset,
+            self.random_mouse_offset_enabled,
+            self.random_mouse_offset_x,
+            self.random_mouse_offset_y,
+            self.click_type,
+            self.hold_duration,
+            self.repeat_option,
+            self.repeat_value,
+            self.killswitch_hotkey,
+        )
+
         MainFrame(
             self,
             (self.interval_ms, self.interval_s, self.interval_min, self.interval_hr),
             self.button,
-            self.update_variable
+            self.advanced_options_vars
         )
         ButtonsFrame(self, (self.start_clicking, self.stop_clicking, self.change_hotkey), self.hotkey)
         InfoFrame(self, self.super_mode)
 
         keyboard.add_hotkey('Ctrl+Shift+k', self.destroy)
-
-        self.new_window = AdvancedOptions(self.update_variable)
-        self.new_window.withdraw()
 
         self.mainloop()
 
@@ -92,7 +106,7 @@ class App(ctk.CTk):
         keyboard.add_hotkey(self.hotkey.get(), lambda: self.stop_clicking(buttons_frame))
         threading.Thread(
             target=self.clicking_thread,
-            args=(self.get_interval_sum(), self.button.get()),
+            args=(self.get_interval_sum(), self.button.get(), buttons_frame),
             daemon=True
         ).start()
 
@@ -103,7 +117,7 @@ class App(ctk.CTk):
         buttons_frame.stop_button.configure(state='disabled')
         keyboard.add_hotkey(self.hotkey.get(), lambda: self.start_clicking(buttons_frame))
 
-    def clicking_thread(self, click_interval: float | int, button) -> None:
+    def clicking_thread(self, click_interval: float | int, button, buttons_frame) -> None:
         mouse_button = button.lower()
         if self.super_mode.get():
             user32 = ctypes.WinDLL('user32', use_last_error=True)
@@ -116,17 +130,51 @@ class App(ctk.CTk):
                 user32.mouse_event(0x201, 0, 0, 0, 0)
                 user32.mouse_event(0x202, 0, 0, 0, 0)
         else:
-            while not self.stop_main_thread:
-                if self.random_mouse_offset_enabled:
-                    x = random.randint(-self.random_mouse_offset_x.get(), self.random_mouse_offset_x.get())
-                    y = random.randint(-self.random_mouse_offset_y.get(), self.random_mouse_offset_y.get())
-                    mouse.move(x, y, absolute=False)
-                mouse.press(mouse_button)
-                mouse.release(mouse_button)
-                sleep(click_interval + random.uniform(0, self.random_time_offset.get() / 1000)
-                      if self.random_time_offset_enabled else click_interval)
-                if self.random_mouse_offset_enabled:
-                    mouse.move(-x, -y, absolute=False)
+            if self.repeat_option.get() == 'Repeat':
+                for _ in range(int(self.repeat_value.get())):
+                    if self.stop_main_thread:
+                        break
+                    if self.random_mouse_offset_enabled:
+                        x = random.randint(
+                            -int(self.random_mouse_offset_x.get()), int(self.random_mouse_offset_x.get())
+                        )
+                        y = random.randint(
+                            -int(self.random_mouse_offset_y.get()), int(self.random_mouse_offset_y.get())
+                        )
+                        mouse.move(x, y, absolute=False)
+                    mouse.press(mouse_button)
+                    sleep(int(self.hold_duration.get()) / 1000)
+                    mouse.release(mouse_button)
+                    if self.click_type.get() == 'Double':
+                        mouse.press(mouse_button)
+                        sleep(int(self.hold_duration.get()) / 1000)
+                        mouse.release(mouse_button)
+                    sleep(click_interval + random.uniform(0, int(self.random_time_offset.get()) / 1000)
+                          if self.random_time_offset_enabled else click_interval)
+                    if self.random_mouse_offset_enabled:
+                        mouse.move(-x, -y, absolute=False)
+                self.stop_clicking(buttons_frame)
+            else:
+                while not self.stop_main_thread:
+                    if self.random_mouse_offset_enabled.get():
+                        x = random.randint(
+                            -int(self.random_mouse_offset_x.get()), int(self.random_mouse_offset_x.get())
+                        )
+                        y = random.randint(
+                            -int(self.random_mouse_offset_y.get()), int(self.random_mouse_offset_y.get())
+                        )
+                        mouse.move(x, y, absolute=False)
+                    mouse.press(mouse_button)
+                    sleep(int(self.hold_duration.get()) / 1000)
+                    mouse.release(mouse_button)
+                    if self.click_type.get() == 'Double':
+                        mouse.press(mouse_button)
+                        sleep(int(self.hold_duration.get()) / 1000)
+                        mouse.release(mouse_button)
+                    sleep(click_interval + random.uniform(0, int(self.random_time_offset.get()) / 1000)
+                          if self.random_time_offset_enabled else click_interval)
+                    if self.random_mouse_offset_enabled.get():
+                        mouse.move(-x, -y, absolute=False)
         exit()
 
     def change_hotkey(self, buttons_frame):
@@ -164,32 +212,6 @@ class App(ctk.CTk):
 
         threading.Thread(target=wait_for_callback, daemon=True).start()
 
-    def update_variable(self, variable, variable_name):
-        match variable_name:
-            case 'random_time_offset_enabled':
-                self.random_time_offset_enabled.set(variable.get())
-            case 'random_time_offset':
-                self.random_time_offset.set(variable.get())
-            case 'random_mouse_offset_enabled':
-                self.random_time_offset_enabled.set(variable.get())
-            case 'random_mouse_offset_x':
-                self.random_mouse_offset_x.set(variable.get())
-            case 'random_mouse_offset_y':
-                self.random_mouse_offset_y.set(variable.get())
-            case 'click_type':
-                self.click_type.set(variable.get())
-            case 'hold_duration':
-                self.hold_duration.set(variable.get())
-            case 'repeat_option':
-                self.repeat_option.set(variable.get())
-            case 'repeat_value':
-                self.repeat_value.set(variable.get())
-            case 'killswitch_hotkey':
-                print(variable.get())
-            case _:
-                print('Error' + str(variable.get()))
-        print(variable.get())
-
     @staticmethod
     def validate(variable) -> None:
         variable_text = variable.get()
@@ -200,16 +222,16 @@ class App(ctk.CTk):
 
 
 class MainFrame(ctk.CTkFrame):
-    def __init__(self, master, interval_variables, dropdown_variable, update_func):
+    def __init__(self, master, interval_variables, dropdown_variable, advanced_options_vars):
         super().__init__(master)
         self.pack(expand=True, fill='both', padx=5, pady=5)
 
-        self.info_frame = MainFrameInfoFrame(self, dropdown_variable, update_func)
+        self.info_frame = MainFrameInfoFrame(self, dropdown_variable, advanced_options_vars)
         self.interval_frame = IntervalFrame(self, interval_variables)
 
 
 class MainFrameInfoFrame(ctk.CTkFrame):
-    def __init__(self, master, dropdown_variable, update_func):
+    def __init__(self, master, dropdown_variable, advanced_options_vars):
         super().__init__(master, fg_color='transparent')
         self.pack(expand=True, fill='x')
 
@@ -217,7 +239,7 @@ class MainFrameInfoFrame(ctk.CTkFrame):
         self.description_label.pack(side='left', padx=10)
 
         self.advanced_options = ctk.CTkButton(
-            self, text='>>', width=40, command=lambda: AdvancedOptions(update_func=update_func)
+            self, text='>>', width=40, command=lambda: AdvancedOptions(advanced_options_vars)
         )
         self.advanced_options.pack(side='right', padx=5, pady=10)
 
@@ -297,6 +319,160 @@ class InfoFrame(ctk.CTkFrame):
 
         self.super_mode_switch = ctk.CTkSwitch(self, text='Super Mode', variable=super_mode_variable)
         self.super_mode_switch.pack(side='right', padx=5)
+
+
+class AdvancedOptions(ctk.CTkToplevel):
+    def __init__(self, advanced_options_vars):
+        super().__init__()
+        self.title("Advanced Options")
+        self.grab_set()
+        self.geometry(
+            f"500x300"
+            f"+{int(self.winfo_screenwidth() / 2 - 500 / 2)}"
+            f"+{int(self.winfo_screenheight() / 2 - 300 / 2)}"
+        )
+        self.resizable(False, False)
+
+        self.rowconfigure((0, 1, 2), weight=3, uniform='a')
+        self.columnconfigure((0, 1), weight=1, uniform='a')
+
+        self.random_time_offset_enabled = advanced_options_vars[0]
+        self.random_time_offset = advanced_options_vars[1]
+
+        self.random_mouse_offset_enabled = advanced_options_vars[2]
+        self.random_mouse_offset_x = advanced_options_vars[3]
+        self.random_mouse_offset_y = advanced_options_vars[4]
+
+        self.click_type = advanced_options_vars[5]
+        self.hold_duration = advanced_options_vars[6]
+
+        self.repeat_option = advanced_options_vars[7]
+        self.repeat_value = advanced_options_vars[8]
+
+        self.killswitch_hotkey = advanced_options_vars[9]
+
+        self.appearence = ctk.StringVar(value='System')
+        self.theme = ctk.StringVar(value='Blue')
+
+        TimeOffset(self, self.random_time_offset_enabled, self.random_time_offset)
+        MouseOffset(self, self.random_mouse_offset_enabled, (self.random_mouse_offset_x, self.random_mouse_offset_y))
+        ClickType(self, self.click_type, self.hold_duration)
+        RepeatOptions(self, self.repeat_option, self.repeat_value)
+        KillSwitch(self, self.killswitch_hotkey)
+        ChangeTheme(self, self.appearence, self.theme)
+
+    @staticmethod
+    def validate(variable) -> None:
+        variable_text = variable.get()
+        for letter in variable_text:
+            if not letter.isdigit():
+                variable_text = variable_text.replace(letter, '')
+            variable.set(variable_text)
+
+
+class TimeOffset(ctk.CTkFrame):
+    def __init__(self, master, random_time_offest_enabled, random_time_offest):
+        super().__init__(master)
+        self.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+
+        self.switch = ctk.CTkSwitch(self, text='Random Time Offset', variable=random_time_offest_enabled)
+        self.switch.place(relx=0.05, rely=0.1)
+
+        self.label = ctk.CTkLabel(self, text='Milliseconds')
+        self.label.place(relx=0.05, rely=0.55)
+
+        self.entry = ctk.CTkEntry(self, width=60, textvariable=random_time_offest)
+        self.entry.place(relx=0.4, rely=0.55)
+
+
+class MouseOffset(ctk.CTkFrame):
+    def __init__(self, master, random_mouse_offset_enabled, variables):
+        super().__init__(master)
+        self.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
+
+        self.switch = ctk.CTkSwitch(self, text='Random Mouse Offset', variable=random_mouse_offset_enabled)
+        self.switch.place(relx=0.05, rely=0.1)
+
+        self.x = ctk.CTkLabel(self, text='X:')
+        self.x.place(relx=0.05, rely=0.55)
+
+        self.x_entry = ctk.CTkEntry(self, width=60, textvariable=variables[0])
+        self.x_entry.place(relx=0.15, rely=0.55)
+
+        self.y = ctk.CTkLabel(self, text='Y:')
+        self.y.place(relx=0.45, rely=0.55)
+
+        self.y_entry = ctk.CTkEntry(self, width=60, textvariable=variables[1])
+        self.y_entry.place(relx=0.55, rely=0.55)
+
+
+class ClickType(ctk.CTkFrame):
+    def __init__(self, master, click_type, hold_duration):
+        super().__init__(master)
+        self.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+
+        self.label = ctk.CTkLabel(self, text='Click Type:')
+        self.label.place(relx=0.05, rely=0.1)
+
+        self.option_menu = ctk.CTkOptionMenu(self, values=['Single', 'Double'], width=135, variable=click_type)
+        self.option_menu.place(relx=0.37, rely=0.1)
+
+        self.hold_label = ctk.CTkLabel(self, text='Hold duration (ms):')
+        self.hold_label.place(relx=0.05, rely=0.55)
+
+        self.hold_entry = ctk.CTkEntry(self, width=60, textvariable=hold_duration)
+        self.hold_entry.place(relx=0.6, rely=0.55)
+
+
+class RepeatOptions(ctk.CTkFrame):
+    def __init__(self, master, repeat_option, repeat_value):
+        super().__init__(master)
+        self.grid(row=1, column=1, padx=10, pady=10, sticky='nsew')
+
+        self.label = ctk.CTkLabel(self, text='Repeat Options:')
+        self.label.place(relx=0.05, rely=0.1)
+
+        self.toggle = ctk.CTkRadioButton(self, text='Toggle', variable=repeat_option, value='Toggle')
+        self.toggle.place(relx=0.05, rely=0.55)
+
+        self.repeat = ctk.CTkRadioButton(self, text='Repeat', variable=repeat_option, value='Repeat')
+        self.repeat.place(relx=0.4, rely=0.55)
+
+        self.entry = ctk.CTkEntry(self, width=50, textvariable=repeat_value)
+        self.entry.place(relx=0.75, rely=0.53)
+
+
+class KillSwitch(ctk.CTkFrame):
+    def __init__(self, master, killswitch_hotkey):
+        super().__init__(master)
+        self.grid(row=2, column=0, padx=10, pady=10, sticky='nsew')
+
+        self.change_kill_switch_hotkey = ctk.CTkButton(self, text='Change KillSwitch Hotkey')
+        self.change_kill_switch_hotkey.place(relx=0.5, rely=0.15, anchor='n')
+        self.killswitch_hotkey = ctk.CTkLabel(self, textvariable=killswitch_hotkey)
+        self.killswitch_hotkey.place(relx=0.5, rely=0.6, anchor='n')
+
+
+class ChangeTheme(ctk.CTkFrame):
+    def __init__(self, master, appearence, theme):
+        super().__init__(master)
+        self.grid(row=2, column=1, padx=10, pady=10, sticky='nsew')
+
+        self.appearence_label = ctk.CTkLabel(self, text='Appearence:')
+        self.appearence_label.place(relx=0.05, rely=0.1)
+
+        self.appearence_menu = ctk.CTkOptionMenu(
+            self, values=['Light', 'Dark', 'System'], width=126, variable=appearence
+        )
+        self.appearence_menu.place(relx=0.4, rely=0.1)
+
+        self.theme_label = ctk.CTkLabel(self, text='Theme:')
+        self.theme_label.place(relx=0.05, rely=0.55)
+
+        self.theme_menu = ctk.CTkOptionMenu(
+            self, values=['Blue', 'Green', 'Red', 'Grey', 'Cyan', 'Purple'], width=126, variable=theme
+        )
+        self.theme_menu.place(relx=0.4, rely=0.55)
 
 
 app = App()
