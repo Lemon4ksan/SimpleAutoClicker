@@ -61,29 +61,11 @@ class App(ctk.CTk):
         self.hold_duration.trace('w', lambda x, y, z: self.validate(self.hold_duration))
         self.repeat_value.trace('w', lambda x, y, z: self.validate(self.repeat_value))
 
-        self.advanced_options_vars = (
-            self.random_time_offset_enabled,
-            self.random_time_offset,
-            self.random_mouse_offset_enabled,
-            self.random_mouse_offset_x,
-            self.random_mouse_offset_y,
-            self.click_type,
-            self.hold_duration,
-            self.repeat_option,
-            self.repeat_value,
-            self.killswitch_hotkey,
-        )
+        MainFrame(self)
+        ButtonsFrame(self)
+        InfoFrame(self)
 
-        MainFrame(
-            self,
-            (self.interval_ms, self.interval_s, self.interval_min, self.interval_hr),
-            self.button,
-            self.advanced_options_vars
-        )
-        ButtonsFrame(self, (self.start_clicking, self.stop_clicking, self.change_hotkey), self.hotkey)
-        InfoFrame(self, self.super_mode)
-
-        keyboard.add_hotkey('Ctrl+Shift+k', self.destroy)
+        keyboard.add_hotkey('Ctrl+Shift+K', self.destroy)
 
         self.mainloop()
 
@@ -100,10 +82,14 @@ class App(ctk.CTk):
 
     def start_clicking(self, buttons_frame) -> None:
         self.stop_main_thread = False
+
         keyboard.remove_hotkey(self.hotkey.get())
+
         buttons_frame.start_button.configure(state='disabled')
         buttons_frame.stop_button.configure(state='enabled')
+
         keyboard.add_hotkey(self.hotkey.get(), lambda: self.stop_clicking(buttons_frame))
+
         threading.Thread(
             target=self.clicking_thread,
             args=(self.get_interval_sum(), self.button.get(), buttons_frame),
@@ -112,9 +98,12 @@ class App(ctk.CTk):
 
     def stop_clicking(self, buttons_frame) -> None:
         self.stop_main_thread = True
+
         keyboard.remove_hotkey(self.hotkey.get())
+
         buttons_frame.start_button.configure(state='enabled')
         buttons_frame.stop_button.configure(state='disabled')
+
         keyboard.add_hotkey(self.hotkey.get(), lambda: self.start_clicking(buttons_frame))
 
     def clicking_thread(self, click_interval: float | int, button, buttons_frame) -> None:
@@ -122,8 +111,7 @@ class App(ctk.CTk):
         if self.super_mode.get():
             user32 = ctypes.WinDLL('user32', use_last_error=True)
             # Directly calling system to click even faster (really unstable)
-            # Works only with left mouse button, because you're prob not going to need other buttons for this task,
-            # and it's faster
+            # Works only with left mouse button for speed performance
             # 0x201 - LEFTBUTTONUP
             # 0x202 - LEFTBUTTONUP
             while not self.stop_main_thread:
@@ -132,8 +120,10 @@ class App(ctk.CTk):
         else:
             if self.repeat_option.get() == 'Repeat':
                 for _ in range(int(self.repeat_value.get())):
+
                     if self.stop_main_thread:
                         break
+
                     if self.random_mouse_offset_enabled:
                         x = random.randint(
                             -int(self.random_mouse_offset_x.get()), int(self.random_mouse_offset_x.get())
@@ -142,20 +132,26 @@ class App(ctk.CTk):
                             -int(self.random_mouse_offset_y.get()), int(self.random_mouse_offset_y.get())
                         )
                         mouse.move(x, y, absolute=False)
+
                     mouse.press(mouse_button)
                     sleep(int(self.hold_duration.get()) / 1000)
                     mouse.release(mouse_button)
+
                     if self.click_type.get() == 'Double':
                         mouse.press(mouse_button)
                         sleep(int(self.hold_duration.get()) / 1000)
                         mouse.release(mouse_button)
+
                     sleep(click_interval + random.uniform(0, int(self.random_time_offset.get()) / 1000)
                           if self.random_time_offset_enabled else click_interval)
+
                     if self.random_mouse_offset_enabled:
                         mouse.move(-x, -y, absolute=False)
+
                 self.stop_clicking(buttons_frame)
             else:
                 while not self.stop_main_thread:
+
                     if self.random_mouse_offset_enabled.get():
                         x = random.randint(
                             -int(self.random_mouse_offset_x.get()), int(self.random_mouse_offset_x.get())
@@ -164,24 +160,30 @@ class App(ctk.CTk):
                             -int(self.random_mouse_offset_y.get()), int(self.random_mouse_offset_y.get())
                         )
                         mouse.move(x, y, absolute=False)
+
                     mouse.press(mouse_button)
                     sleep(int(self.hold_duration.get()) / 1000)
                     mouse.release(mouse_button)
+
                     if self.click_type.get() == 'Double':
                         mouse.press(mouse_button)
                         sleep(int(self.hold_duration.get()) / 1000)
                         mouse.release(mouse_button)
+
                     sleep(click_interval + random.uniform(0, int(self.random_time_offset.get()) / 1000)
                           if self.random_time_offset_enabled else click_interval)
+
                     if self.random_mouse_offset_enabled.get():
                         mouse.move(-x, -y, absolute=False)
+
         exit()
 
     def change_hotkey(self, buttons_frame):
+        keyboard.remove_hotkey(self.hotkey.get())
+        hotkey_created = False
         new_hotkey = []
         used_modifiers = []
         buttons_frame.change_hotkey_button.configure(text='Press any key...')
-        hotkey_created = False
 
         def callback(key):
             nonlocal hotkey_created
@@ -200,9 +202,10 @@ class App(ctk.CTk):
                 sleep(0.01)
             keyboard.unhook(callback)
             hotkey = '+'.join(new_hotkey)
-            keyboard.remove_hotkey(self.hotkey.get())
+
             self.hotkey.set(hotkey)
             keyboard.add_hotkey(self.hotkey.get(), lambda: self.start_clicking(buttons_frame))
+
             buttons_frame.change_hotkey_button.configure(text='Change Hotkey')
 
             buttons_frame.start_button.configure(text=f"Start: {self.hotkey.get().replace('+', '-').title()}")
@@ -222,16 +225,16 @@ class App(ctk.CTk):
 
 
 class MainFrame(ctk.CTkFrame):
-    def __init__(self, master, interval_variables, dropdown_variable, advanced_options_vars):
+    def __init__(self, master: App):
         super().__init__(master)
         self.pack(expand=True, fill='both', padx=5, pady=5)
 
-        self.info_frame = MainFrameInfoFrame(self, dropdown_variable, advanced_options_vars)
-        self.interval_frame = IntervalFrame(self, interval_variables)
+        MainFrameInfoFrame(self, master)
+        IntervalFrame(self, master)
 
 
 class MainFrameInfoFrame(ctk.CTkFrame):
-    def __init__(self, master, dropdown_variable, advanced_options_vars):
+    def __init__(self, master, root: App):
         super().__init__(master, fg_color='transparent')
         self.pack(expand=True, fill='x')
 
@@ -239,11 +242,11 @@ class MainFrameInfoFrame(ctk.CTkFrame):
         self.description_label.pack(side='left', padx=10)
 
         self.advanced_options = ctk.CTkButton(
-            self, text='>>', width=40, command=lambda: AdvancedOptions(advanced_options_vars)
+            self, text='>>', width=40, command=lambda: AdvancedOptions(root)
         )
         self.advanced_options.pack(side='right', padx=5, pady=10)
 
-        self.drop_menu = ctk.CTkOptionMenu(self, values=['Left', 'Right', 'Middle'], variable=dropdown_variable)
+        self.drop_menu = ctk.CTkOptionMenu(self, values=['Left', 'Right', 'Middle'], variable=root.button)
         self.drop_menu.pack(side='right', padx=5, pady=10)
 
         self.drop_menu_label = ctk.CTkLabel(self, text='Mouse Button:')
@@ -251,21 +254,21 @@ class MainFrameInfoFrame(ctk.CTkFrame):
 
 
 class IntervalFrame(ctk.CTkFrame):
-    def __init__(self, master, interval_variables):
+    def __init__(self, master, root: App):
         super().__init__(master, fg_color='transparent')
         self.pack(expand=True, fill='x', padx=5)
 
         self.label_ms = IntervalFrameLabel(self, text='Ms:')
-        self.entry_ms = IntervalFrameEntry(self, interval_variables[0], width=60)
+        self.entry_ms = IntervalFrameEntry(self, root.interval_ms, width=60)
 
         self.label_sec = IntervalFrameLabel(self, text='Sec:')
-        self.entry_sec = IntervalFrameEntry(self, interval_variables[1], width=60)
+        self.entry_sec = IntervalFrameEntry(self, root.interval_s, width=60)
 
         self.label_min = IntervalFrameLabel(self, text='Min:')
-        self.entry_min = IntervalFrameEntry(self, interval_variables[2], width=60)
+        self.entry_min = IntervalFrameEntry(self, root.interval_min, width=60)
 
         self.label_hr = IntervalFrameLabel(self, text='Hr:')
-        self.entry_hr = IntervalFrameEntry(self, interval_variables[3], width=60)
+        self.entry_hr = IntervalFrameEntry(self, root.interval_hr, width=60)
 
 
 class IntervalFrameEntry(ctk.CTkEntry):
@@ -281,48 +284,48 @@ class IntervalFrameLabel(ctk.CTkLabel):
 
 
 class ButtonsFrame(ctk.CTkFrame):
-    def __init__(self, master, button_funcs, hotkey_variable):
+    def __init__(self, master: App):
         super().__init__(master, fg_color='transparent')
         self.pack(expand=True, fill='y', padx=5, pady=5)
 
         self.start_button = ctk.CTkButton(
             self,
-            text=f"Start: {hotkey_variable.get().replace('+', '-').title()}",
-            command=lambda: button_funcs[0](self)
+            text=f"Start: {master.hotkey.get().replace('+', '-').title()}",
+            command=lambda: master.start_clicking(self)
         )
         self.start_button.pack(side='left', expand=True, padx=5)
 
         self.stop_button = ctk.CTkButton(
             self,
-            text=f"Stop: {hotkey_variable.get().replace('+', '-').title()}",
+            text=f"Stop: {master.hotkey.get().replace('+', '-').title()}",
             state='disabled',
-            command=lambda: button_funcs[1](self)
+            command=lambda: master.stop_clicking(self)
         )
         self.stop_button.pack(side='left', expand=True, padx=5)
 
         self.change_hotkey_button = ctk.CTkButton(
             self,
             text='Change Hotkey',
-            command=lambda: button_funcs[2](self)
+            command=lambda: master.change_hotkey(self)
         )
         self.change_hotkey_button.pack(side='left', expand=True, padx=5)
 
-        keyboard.add_hotkey((hotkey_variable.get()), lambda: button_funcs[0](self))
+        keyboard.add_hotkey((master.hotkey.get()), lambda: master.start_clicking(self))
 
 
 class InfoFrame(ctk.CTkFrame):
-    def __init__(self, master, super_mode_variable):
+    def __init__(self, master: App):
         super().__init__(master, fg_color='transparent')
         self.pack(fill='x', padx=10, pady=5)
         self.killswitch_label = ctk.CTkLabel(self, text='Killswitch: Ctrl+Shift+K')
         self.killswitch_label.pack(side='left')
 
-        self.super_mode_switch = ctk.CTkSwitch(self, text='Super Mode', variable=super_mode_variable)
+        self.super_mode_switch = ctk.CTkSwitch(self, text='Super Mode', variable=master.super_mode)
         self.super_mode_switch.pack(side='right', padx=5)
 
 
 class AdvancedOptions(ctk.CTkToplevel):
-    def __init__(self, advanced_options_vars):
+    def __init__(self, root: App):
         super().__init__()
         self.title("Advanced Options")
         self.grab_set()
@@ -336,30 +339,53 @@ class AdvancedOptions(ctk.CTkToplevel):
         self.rowconfigure((0, 1, 2), weight=3, uniform='a')
         self.columnconfigure((0, 1), weight=1, uniform='a')
 
-        self.random_time_offset_enabled = advanced_options_vars[0]
-        self.random_time_offset = advanced_options_vars[1]
-
-        self.random_mouse_offset_enabled = advanced_options_vars[2]
-        self.random_mouse_offset_x = advanced_options_vars[3]
-        self.random_mouse_offset_y = advanced_options_vars[4]
-
-        self.click_type = advanced_options_vars[5]
-        self.hold_duration = advanced_options_vars[6]
-
-        self.repeat_option = advanced_options_vars[7]
-        self.repeat_value = advanced_options_vars[8]
-
-        self.killswitch_hotkey = advanced_options_vars[9]
+        self.root = root
 
         self.appearence = ctk.StringVar(value='System')
         self.theme = ctk.StringVar(value='Blue')
 
-        TimeOffset(self, self.random_time_offset_enabled, self.random_time_offset)
-        MouseOffset(self, self.random_mouse_offset_enabled, (self.random_mouse_offset_x, self.random_mouse_offset_y))
-        ClickType(self, self.click_type, self.hold_duration)
-        RepeatOptions(self, self.repeat_option, self.repeat_value)
-        KillSwitch(self, self.killswitch_hotkey)
-        ChangeTheme(self, self.appearence, self.theme)
+        TimeOffset(self, root)
+        MouseOffset(self, root)
+        ClickType(self, root)
+        RepeatOptions(self, root)
+        KillSwitch(self, root)
+        ChangeTheme(self, root)
+
+    def change_kill_switch_hotkey(self, buttons_frame):
+        keyboard.remove_hotkey(self.root.killswitch_hotkey.get())
+        hotkey_created = False
+        new_hotkey = []
+        used_modifiers = []
+        buttons_frame.change_kill_switch_hotkey.configure(text='Press any key...')
+
+        def callback(key):
+            nonlocal hotkey_created
+            if key.name not in keyboard.all_modifiers:
+                new_hotkey.append(key.name)
+                hotkey_created = True
+                return
+            if key.name not in used_modifiers:
+                new_hotkey.append(key.name)
+                used_modifiers.append(key.name)
+
+        keyboard.hook(callback)
+
+        def wait_for_callback():
+            while not hotkey_created:
+                sleep(0.01)
+            keyboard.unhook(callback)
+            hotkey = '+'.join(new_hotkey)
+
+            self.root.killswitch_hotkey.set(hotkey)
+            keyboard.add_hotkey(self.root.killswitch_hotkey.get(), lambda: self.root.destroy())
+
+            buttons_frame.change_kill_switch_hotkey.configure(text='Change KillSwitch Hotkey')
+            buttons_frame.killswitch_hotkey.configure(
+                text=f"{self.root.killswitch_hotkey.get().replace('+', '-').title()}"
+            )
+            exit()
+
+        threading.Thread(target=wait_for_callback, daemon=True).start()
 
     @staticmethod
     def validate(variable) -> None:
@@ -371,90 +397,95 @@ class AdvancedOptions(ctk.CTkToplevel):
 
 
 class TimeOffset(ctk.CTkFrame):
-    def __init__(self, master, random_time_offest_enabled, random_time_offest):
+    def __init__(self, master, root: App):
         super().__init__(master)
         self.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
 
-        self.switch = ctk.CTkSwitch(self, text='Random Time Offset', variable=random_time_offest_enabled)
+        self.switch = ctk.CTkSwitch(self, text='Random Time Offset', variable=root.random_time_offset_enabled)
         self.switch.place(relx=0.05, rely=0.1)
 
         self.label = ctk.CTkLabel(self, text='Milliseconds')
         self.label.place(relx=0.05, rely=0.55)
 
-        self.entry = ctk.CTkEntry(self, width=60, textvariable=random_time_offest)
+        self.entry = ctk.CTkEntry(self, width=60, textvariable=root.random_time_offset)
         self.entry.place(relx=0.4, rely=0.55)
 
 
 class MouseOffset(ctk.CTkFrame):
-    def __init__(self, master, random_mouse_offset_enabled, variables):
+    def __init__(self, master, root: App):
         super().__init__(master)
         self.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
 
-        self.switch = ctk.CTkSwitch(self, text='Random Mouse Offset', variable=random_mouse_offset_enabled)
+        self.switch = ctk.CTkSwitch(self, text='Random Mouse Offset', variable=root.random_mouse_offset_enabled)
         self.switch.place(relx=0.05, rely=0.1)
 
         self.x = ctk.CTkLabel(self, text='X:')
         self.x.place(relx=0.05, rely=0.55)
 
-        self.x_entry = ctk.CTkEntry(self, width=60, textvariable=variables[0])
+        self.x_entry = ctk.CTkEntry(self, width=60, textvariable=root.random_mouse_offset_x)
         self.x_entry.place(relx=0.15, rely=0.55)
 
         self.y = ctk.CTkLabel(self, text='Y:')
         self.y.place(relx=0.45, rely=0.55)
 
-        self.y_entry = ctk.CTkEntry(self, width=60, textvariable=variables[1])
+        self.y_entry = ctk.CTkEntry(self, width=60, textvariable=root.random_mouse_offset_y)
         self.y_entry.place(relx=0.55, rely=0.55)
 
 
 class ClickType(ctk.CTkFrame):
-    def __init__(self, master, click_type, hold_duration):
+    def __init__(self, master, root: App):
         super().__init__(master)
         self.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
 
         self.label = ctk.CTkLabel(self, text='Click Type:')
         self.label.place(relx=0.05, rely=0.1)
 
-        self.option_menu = ctk.CTkOptionMenu(self, values=['Single', 'Double'], width=135, variable=click_type)
+        self.option_menu = ctk.CTkOptionMenu(self, values=['Single', 'Double'], width=135, variable=root.click_type)
         self.option_menu.place(relx=0.37, rely=0.1)
 
         self.hold_label = ctk.CTkLabel(self, text='Hold duration (ms):')
         self.hold_label.place(relx=0.05, rely=0.55)
 
-        self.hold_entry = ctk.CTkEntry(self, width=60, textvariable=hold_duration)
+        self.hold_entry = ctk.CTkEntry(self, width=60, textvariable=root.hold_duration)
         self.hold_entry.place(relx=0.6, rely=0.55)
 
 
 class RepeatOptions(ctk.CTkFrame):
-    def __init__(self, master, repeat_option, repeat_value):
+    def __init__(self, master, root):
         super().__init__(master)
         self.grid(row=1, column=1, padx=10, pady=10, sticky='nsew')
 
         self.label = ctk.CTkLabel(self, text='Repeat Options:')
         self.label.place(relx=0.05, rely=0.1)
 
-        self.toggle = ctk.CTkRadioButton(self, text='Toggle', variable=repeat_option, value='Toggle')
+        self.toggle = ctk.CTkRadioButton(self, text='Toggle', variable=root.repeat_option, value='Toggle')
         self.toggle.place(relx=0.05, rely=0.55)
 
-        self.repeat = ctk.CTkRadioButton(self, text='Repeat', variable=repeat_option, value='Repeat')
+        self.repeat = ctk.CTkRadioButton(self, text='Repeat', variable=root.repeat_option, value='Repeat')
         self.repeat.place(relx=0.4, rely=0.55)
 
-        self.entry = ctk.CTkEntry(self, width=50, textvariable=repeat_value)
+        self.entry = ctk.CTkEntry(self, width=50, textvariable=root.repeat_value)
         self.entry.place(relx=0.75, rely=0.53)
 
 
 class KillSwitch(ctk.CTkFrame):
-    def __init__(self, master, killswitch_hotkey):
+    def __init__(self, master, root):
         super().__init__(master)
         self.grid(row=2, column=0, padx=10, pady=10, sticky='nsew')
 
-        self.change_kill_switch_hotkey = ctk.CTkButton(self, text='Change KillSwitch Hotkey')
+        self.change_kill_switch_hotkey = ctk.CTkButton(
+            self,
+            text='Change KillSwitch Hotkey',
+            command=lambda: master.change_kill_switch_hotkey(self)
+        )
         self.change_kill_switch_hotkey.place(relx=0.5, rely=0.15, anchor='n')
-        self.killswitch_hotkey = ctk.CTkLabel(self, textvariable=killswitch_hotkey)
+
+        self.killswitch_hotkey = ctk.CTkLabel(self, text=f"{root.killswitch_hotkey.get().replace('+', '-').title()}")
         self.killswitch_hotkey.place(relx=0.5, rely=0.6, anchor='n')
 
 
 class ChangeTheme(ctk.CTkFrame):
-    def __init__(self, master, appearence, theme):
+    def __init__(self, master, root):
         super().__init__(master)
         self.grid(row=2, column=1, padx=10, pady=10, sticky='nsew')
 
@@ -462,7 +493,7 @@ class ChangeTheme(ctk.CTkFrame):
         self.appearence_label.place(relx=0.05, rely=0.1)
 
         self.appearence_menu = ctk.CTkOptionMenu(
-            self, values=['Light', 'Dark', 'System'], width=126, variable=appearence
+            self, values=['Light', 'Dark', 'System'], width=126, variable=root.appearence
         )
         self.appearence_menu.place(relx=0.4, rely=0.1)
 
@@ -470,7 +501,7 @@ class ChangeTheme(ctk.CTkFrame):
         self.theme_label.place(relx=0.05, rely=0.55)
 
         self.theme_menu = ctk.CTkOptionMenu(
-            self, values=['Blue', 'Green', 'Red', 'Grey', 'Cyan', 'Purple'], width=126, variable=theme
+            self, values=['Blue', 'Green', 'Red', 'Grey', 'Cyan', 'Purple'], width=126, variable=root.theme
         )
         self.theme_menu.place(relx=0.4, rely=0.55)
 
