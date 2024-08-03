@@ -45,7 +45,7 @@ class App(ctk.CTk):
         self.iconbitmap(r'./App.ico')
         self.resizable(False, False)
 
-        self.stop_main_thread: bool = False
+        self.stop_main_thread = False
 
         self.interval_ms = ctk.StringVar(value='100')
         self.interval_s = ctk.StringVar(value='0')
@@ -101,38 +101,37 @@ class App(ctk.CTk):
                 + self.normalize(self.interval_min) * 60
                 + self.normalize(self.interval_hr) * 3600)
 
-    def start_clicking(self, buttons_frame) -> None:
+    def start_clicking(self) -> None:
         self.stop_main_thread = False
 
         keyboard.remove_hotkey(self.hotkey.get())
 
-        buttons_frame.start_button.configure(state='disabled')
-        buttons_frame.stop_button.configure(state='enabled')
+        self.buttons_frame.start_button.configure(state='disabled')
+        self.buttons_frame.stop_button.configure(state='enabled')
 
-        keyboard.add_hotkey(self.hotkey.get(), lambda: self.stop_clicking(buttons_frame))
+        keyboard.add_hotkey(self.hotkey.get(), self.stop_clicking)
 
         threading.Thread(
             target=self.clicking_thread,
-            args=(buttons_frame,),
             daemon=True
         ).start()
 
-    def stop_clicking(self, buttons_frame) -> None:
+    def stop_clicking(self) -> None:
         self.stop_main_thread = True
 
         keyboard.remove_hotkey(self.hotkey.get())
 
-        buttons_frame.start_button.configure(state='enabled')
-        buttons_frame.stop_button.configure(state='disabled')
+        self.buttons_frame.start_button.configure(state='enabled')
+        self.buttons_frame.stop_button.configure(state='disabled')
 
-        keyboard.add_hotkey(self.hotkey.get(), lambda: self.start_clicking(buttons_frame))
+        keyboard.add_hotkey(self.hotkey.get(), self.start_clicking)
 
-    def clicking_thread(self, buttons_frame) -> None:
+    def clicking_thread(self) -> None:
 
         if self.super_mode.get():
             user32 = ctypes.WinDLL('user32', use_last_error=True)
             # Directly calling system to click even faster (really unstable)
-            # Works ignores all preferences for speed performance
+            # Ignores all preferences for speed performance
             # 0x201 - LEFTBUTTONUP
             # 0x202 - LEFTBUTTONDOWN
             while not self.stop_main_thread:
@@ -144,13 +143,13 @@ class App(ctk.CTk):
         click_interval = self.get_interval_sum()
 
         if self.repeat_option.get() == 'Repeat':
-            self.repeat_clicking(mouse_button, click_interval, buttons_frame)
+            self.repeat_clicking(mouse_button, click_interval)
         else:
             self.toggle_clicking(mouse_button, click_interval)
 
         exit()
 
-    def repeat_clicking(self, mouse_button, click_interval, buttons_frame) -> None:
+    def repeat_clicking(self, mouse_button, click_interval) -> None:
         repeat_amount = int(self.repeat_value.get())
         while not self.stop_main_thread and repeat_amount > 0:
 
@@ -182,7 +181,7 @@ class App(ctk.CTk):
 
             repeat_amount -= 1
 
-        self.stop_clicking(buttons_frame)
+        self.stop_clicking()
 
     def toggle_clicking(self, mouse_button, click_interval) -> None:
         while not self.stop_main_thread:
@@ -211,14 +210,14 @@ class App(ctk.CTk):
             if self.random_mouse_offset_enabled.get():
                 mouse.move(-x, -y, absolute=False)
 
-    def change_hotkey(self, buttons_frame) -> None:
+    def change_hotkey(self) -> None:
         keyboard.remove_hotkey(self.hotkey.get())
         hotkey_created = False
         new_hotkey = []
         used_modifiers = []
-        buttons_frame.change_hotkey_button.configure(text='Press any key...')
+        self.buttons_frame.change_hotkey_button.configure(text='Press any key...')
 
-        def callback(key):
+        def callback(key) -> None:
             nonlocal hotkey_created
             if key.name not in keyboard.all_modifiers:
                 new_hotkey.append(key.name)
@@ -237,18 +236,18 @@ class App(ctk.CTk):
             hotkey = '+'.join(new_hotkey)
 
             self.hotkey.set(hotkey)
-            keyboard.add_hotkey(self.hotkey.get(), lambda: self.start_clicking(buttons_frame))
+            keyboard.add_hotkey(self.hotkey.get(), self.start_clicking)
 
-            buttons_frame.change_hotkey_button.configure(text='Change Hotkey')
+            self.buttons_frame.change_hotkey_button.configure(text='Change Hotkey')
 
-            buttons_frame.start_button.configure(text=f"Start: {self.hotkey.get().replace('+', '-').title()}")
-            buttons_frame.stop_button.configure(text=f"Stop: {self.hotkey.get().replace('+', '-').title()}")
+            self.buttons_frame.start_button.configure(text=f"Start: {self.hotkey.get().replace('+', '-').title()}")
+            self.buttons_frame.stop_button.configure(text=f"Stop: {self.hotkey.get().replace('+', '-').title()}")
 
             exit()
 
         threading.Thread(target=wait_for_callback, daemon=True).start()
 
-    def change_theme(self):
+    def change_theme(self) -> None:
         fg_color = fg_colors[self.theme.get()]
         hover_color = hover_colors[self.theme.get()]
         dropdown_hover_color = dropdown_hover_colors[self.theme.get()]
@@ -358,7 +357,7 @@ class ButtonsFrame(ctk.CTkFrame):
         self.start_button = ctk.CTkButton(
             self,
             text=f"Start: {master.hotkey.get().replace('+', '-').title()}",
-            command=lambda: master.start_clicking(self),
+            command=lambda: master.start_clicking(),
             fg_color=fg_colors[master.theme.get()],
             hover_color=hover_colors[master.theme.get()]
         )
@@ -368,7 +367,7 @@ class ButtonsFrame(ctk.CTkFrame):
             self,
             text=f"Stop: {master.hotkey.get().replace('+', '-').title()}",
             state='disabled',
-            command=lambda: master.stop_clicking(self),
+            command=lambda: master.stop_clicking(),
             fg_color=fg_colors[master.theme.get()],
             hover_color=hover_colors[master.theme.get()]
         )
@@ -377,13 +376,13 @@ class ButtonsFrame(ctk.CTkFrame):
         self.change_hotkey_button = ctk.CTkButton(
             self,
             text='Change Hotkey',
-            command=lambda: master.change_hotkey(self),
+            command=lambda: master.change_hotkey(),
             fg_color=fg_colors[master.theme.get()],
             hover_color=hover_colors[master.theme.get()]
         )
         self.change_hotkey_button.pack(side='left', expand=True, padx=5)
 
-        keyboard.add_hotkey((master.hotkey.get()), lambda: master.start_clicking(self))
+        keyboard.add_hotkey((master.hotkey.get()), master.start_clicking)
 
 
 class InfoFrame(ctk.CTkFrame):
@@ -452,7 +451,7 @@ class AdvancedOptions(ctk.CTkToplevel):
             hotkey = '+'.join(new_hotkey)
 
             self.root.killswitch_hotkey.set(hotkey)
-            keyboard.add_hotkey(self.root.killswitch_hotkey.get(), lambda: self.root.destroy())
+            keyboard.add_hotkey(self.root.killswitch_hotkey.get(), self.root.destroy)
 
             buttons_frame.change_killswitch_hotkey.configure(text='Change KillSwitch Hotkey')
             buttons_frame.killswitch_hotkey.configure(
