@@ -4,7 +4,10 @@ import keyboard
 import threading
 import mouse
 import ctypes
+import os
 from time import sleep
+
+BASE_DIR = os.path.dirname(__file__)
 
 fg_colors = {
     'Default': '#1c72b1',
@@ -42,7 +45,7 @@ class App(ctk.CTk):
             f"+{int(self.winfo_screenwidth() / 2 - 450 / 2)}"
             f"+{int(self.winfo_screenheight() / 2 - 250 / 2)}"
         )
-        self.iconbitmap(r'./App.ico')
+        self.iconbitmap(os.path.join(BASE_DIR, r'./App.ico'))
         self.resizable(False, False)
 
         self.stop_main_thread = False
