@@ -135,8 +135,8 @@ class App(ctk.CTk):
             user32 = ctypes.WinDLL('user32', use_last_error=True)
             # Directly calling system to click even faster (really unstable)
             # Ignores all preferences for speed performance
-            # 0x201 - LEFTBUTTONUP
-            # 0x202 - LEFTBUTTONDOWN
+            # 0x201 - LEFTBUTTONDOWN
+            # 0x202 - LEFTBUTTONUP
             while not self.stop_main_thread:
                 user32.mouse_event(0x201, 0, 0, 0, 0)
                 user32.mouse_event(0x202, 0, 0, 0, 0)
