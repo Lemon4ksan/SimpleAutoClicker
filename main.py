@@ -7,8 +7,6 @@ import ctypes
 import os
 from time import sleep
 
-BASE_DIR = os.path.dirname(__file__)
-
 fg_colors = {
     'Default': '#1c72b1',
     'Green': '#15a336',
@@ -45,7 +43,7 @@ class App(ctk.CTk):
             f"+{int(self.winfo_screenwidth() / 2 - 450 / 2)}"
             f"+{int(self.winfo_screenheight() / 2 - 250 / 2)}"
         )
-        self.iconbitmap(os.path.join(BASE_DIR, 'App.ico'))
+        self.iconbitmap(os.path.join(r'.\App.ico'))
         self.resizable(False, False)
 
         self.stop_main_thread = False
@@ -406,7 +404,6 @@ class AdvancedOptions(ctk.CTkToplevel):
     def __init__(self, root: App):
         super().__init__()
         self.title("Advanced Options")
-        self.iconbitmap(os.path.join(BASE_DIR, 'App.ico'))
         self.grab_set()
         self.geometry(
             f"500x300"
