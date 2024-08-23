@@ -110,7 +110,7 @@ class App(ctk.CTk):
         keyboard.remove_hotkey(self.hotkey.get())
 
         self.buttons_frame.start_button.configure(state='disabled')
-        self.buttons_frame.stop_button.configure(state='enabled')
+        self.buttons_frame.stop_button.configure(state='normal')
 
         keyboard.add_hotkey(self.hotkey.get(), self.stop_clicking)
 
@@ -124,7 +124,7 @@ class App(ctk.CTk):
 
         keyboard.remove_hotkey(self.hotkey.get())
 
-        self.buttons_frame.start_button.configure(state='enabled')
+        self.buttons_frame.start_button.configure(state='normal')
         self.buttons_frame.stop_button.configure(state='disabled')
 
         keyboard.add_hotkey(self.hotkey.get(), self.start_clicking)
